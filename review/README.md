@@ -6,7 +6,7 @@ Open the page, pick a video, write notes, then copy them and paste them to whoev
 
 ## What it does
 
-* Pick a video from your own computer, or drag it onto the page. The file stays on your computer.
+* Pick a video from your own computer, or drag it onto the page. The file stays on your computer. The player sits on the left, with the note box under it, and the notes list on the right. On a narrow screen the notes list stacks under the player.
 * Add notes at the current time. Click a timestamp to jump back to it. Edit or delete any note.
 * Drop a pin on the frame for a note. Pins are numbered circles on the picture. The number matches that note's place in the list, starting at 1. A note can also be saved with no pin.
 * Notes are saved in this browser, separately for each video (by file name and length). A pin is saved with its note. Older notes that have no pin still load.
@@ -16,8 +16,9 @@ Open the page, pick a video, write notes, then copy them and paste them to whoev
 ## Keyboard
 
 * Space: play or pause
-* C: write a note at the current time (Ctrl or Cmd + Enter saves it)
-* P: turn pin mode on or off. Then click or tap the picture to drop a pin. The note box is focused so you can type. Drag a pin to move it. Use Remove pin on the note, or the small x on the circle, to drop the pin and keep the note.
+* Enter: add the note. Shift+Enter adds a line break while typing. Ctrl or Cmd+Enter still saves an edit.
+* C: put the note time at the current frame and focus the note field
+* P: turn pin mode on or off. Then click or tap the picture to drop a pin. The note box is focused so you can type. Drag a pin to move it. The x on the pin, Remove on a pin that is not saved yet, or Remove pin on the note takes the pin off and keeps the note.
 * Left and Right arrows: back or forward 1 second (hold Shift for 5 seconds)
 * Comma and period: back or forward one frame
 
