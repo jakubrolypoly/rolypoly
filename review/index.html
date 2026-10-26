@@ -1,0 +1,371 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Review</title>
+<link rel="icon" href="data:,">
+<meta name="description" content="Watch a video from your own computer, add timestamped notes, and send them to your Grok Bot.">
+<style>
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font:14px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;background:#121417;color:#e6e8eb}
+a{color:#7fb4ff}
+header{display:flex;align-items:center;gap:12px;padding:12px 20px;border-bottom:1px solid #23272d;background:#16191d}
+header h1{font-size:17px;margin:0;font-weight:650;letter-spacing:.2px}
+header .sub{color:#8a9099;font-size:13px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+main{display:flex;gap:20px;padding:20px;height:calc(100% - 55px)}
+#left{flex:1 1 auto;display:flex;flex-direction:column;gap:10px;min-width:0}
+#stage{position:relative;flex:1;min-height:240px;background:#0a0b0d;border:1px dashed #2f353d;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#stage.drag{border-color:#5b9cf5;background:#0f1622}
+#stage.has{border-style:solid;border-color:#1d2126}
+video{max-width:100%;max-height:100%;width:auto;height:auto;display:none;background:#000}
+#stage.has video{display:block;width:100%;height:100%;object-fit:contain}
+#stage.has #empty{display:none}
+#empty{text-align:center;color:#8a9099;padding:24px}
+#empty b{display:block;color:#e6e8eb;font-size:16px;margin-bottom:6px}
+#bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#now{font-variant-numeric:tabular-nums;font-weight:650;font-size:15px;min-width:64px}
+.keys{color:#8a9099;font-size:12px}
+kbd{font:11px ui-monospace,SFMono-Regular,Menlo,monospace;background:#22262c;border:1px solid #333941;border-bottom-width:2px;border-radius:4px;padding:0 5px;color:#cfd3d8}
+#right{flex:0 0 400px;display:flex;flex-direction:column;min-width:300px;max-width:460px}
+h2{font-size:15px;margin:0 0 10px;font-weight:650}
+label{display:block;font-size:12px;color:#9aa1aa;margin:0 0 4px}
+input[type=text],input[type=url],input[type=password],textarea,select{width:100%;background:#1b1f24;color:#e6e8eb;border:1px solid #333941;border-radius:8px;padding:8px 10px;font:inherit}
+input:focus,textarea:focus,select:focus{outline:2px solid #3d7be0;outline-offset:0;border-color:#3d7be0}
+textarea{resize:vertical;min-height:72px}
+button{font:inherit;background:#2a2f36;color:#e6e8eb;border:1px solid #39404a;border-radius:8px;padding:7px 12px;cursor:pointer}
+button:hover{background:#323842}
+button:disabled{opacity:.5;cursor:default}
+button.p{background:#3d7be0;border-color:#3d7be0;color:#fff}
+button.p:hover{background:#4a88ec}
+button.g{background:transparent;border-color:transparent;color:#9aa1aa;padding:6px 8px}
+button.g:hover{color:#e6e8eb;background:#22262c}
+button.danger:hover{background:#4a2327;border-color:#6b2c33}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.field{margin-bottom:10px}
+#info{font-size:12px;color:#8a9099;margin:6px 0 0}
+#list{flex:1;overflow:auto;margin-top:12px;padding-right:2px}
+.it{background:#181b20;border:1px solid #262b32;border-radius:10px;padding:8px 10px;margin-bottom:8px}
+.it .top{display:flex;align-items:center;gap:6px}
+.ts{color:#7fb4ff;cursor:pointer;font-weight:650;font-variant-numeric:tabular-nums;background:none;border:0;padding:0}
+.ts:hover{text-decoration:underline;background:none}
+.it .sp{flex:1}
+.it .txt{white-space:pre-wrap;word-wrap:break-word;margin-top:2px}
+.it button.g{padding:2px 6px;font-size:12px}
+.muted{color:#8a9099;font-size:12px}
+#status{margin-top:10px;font-size:13px;border-radius:8px;padding:0;display:none}
+#status.show{display:block;padding:8px 10px}
+#status.ok{background:#14301f;border:1px solid #23573a;color:#bfe9cf}
+#status.err{background:#3a1a1d;border:1px solid #6b2c33;color:#f3c4c8}
+#status.info{background:#1a2333;border:1px solid #2c3c58;color:#c8d8f3}
+#status textarea{margin-top:6px;height:90px;font:12px ui-monospace,Menlo,monospace}
+dialog{background:#171a1f;color:#e6e8eb;border:1px solid #2f353d;border-radius:14px;padding:0;width:min(560px,94vw);max-height:90vh}
+dialog::backdrop{background:rgba(0,0,0,.6)}
+.dlg{padding:18px 20px;overflow:auto;max-height:90vh}
+.dlg h2{display:flex;align-items:center}
+.dlg h2 span{flex:1}
+.note{font-size:12px;color:#9aa1aa;margin-top:4px}
+.lock{color:#bfe9cf}
+details{border:1px solid #2a2f36;border-radius:10px;padding:8px 12px;margin-top:12px;background:#15181c}
+summary{cursor:pointer;font-weight:600}
+details ol{margin:8px 0 4px;padding-left:20px}
+details li{margin-bottom:4px}
+.radio{display:flex;gap:8px;align-items:flex-start;margin:6px 0;font-size:13px;color:#e6e8eb}
+.radio input{margin-top:3px}
+.adv{margin-top:6px}
+.hidden{display:none!important}
+@media (max-width:860px){main{flex-direction:column;height:auto}#right{flex:none;max-width:none}#stage{min-height:50vh}#list{max-height:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>Review</h1>
+  <div class="sub" id="fn">No video loaded</div>
+  <button class="g" id="helpBtn" title="How to connect your Grok Bot">Help</button>
+  <button class="g" id="gear" title="Settings" aria-label="Settings">&#9881; Settings</button>
+</header>
+<main>
+  <section id="left">
+    <div id="stage">
+      <div id="empty"><b>Choose a video or drag one here</b>The file stays on your computer. Nothing is uploaded.<div class="row" style="justify-content:center;margin-top:12px"><button class="p" id="pick">Choose video</button></div></div>
+      <video id="v" controls playsinline></video>
+    </div>
+    <input type="file" id="file" accept="video/*" class="hidden">
+    <div id="bar">
+      <span id="now">0:00.0</span>
+      <button id="pick2" class="g">Open another video</button>
+      <span class="sp" style="flex:1"></span>
+      <span class="keys"><kbd>Space</kbd> play or pause &middot; <kbd>C</kbd> note at current time &middot; <kbd>&larr;</kbd> <kbd>&rarr;</kbd> 1s &middot; <kbd>Shift</kbd>+arrows 5s &middot; <kbd>,</kbd> <kbd>.</kbd> one frame</span>
+    </div>
+  </section>
+  <section id="right">
+    <h2>Notes</h2>
+    <div class="field"><label for="reviewer">Your name (optional)</label><input type="text" id="reviewer" placeholder="Shown with your notes" autocomplete="name"></div>
+    <label for="t">Note</label>
+    <textarea id="t" placeholder="What do you see at this moment? Press C to jump here, Ctrl or Cmd + Enter to save."></textarea>
+    <div id="info"></div>
+    <div class="row">
+      <button class="p" id="add">Add note at current time</button>
+      <button id="cp">Copy all notes</button>
+      <button class="p" id="send">Send to my bot</button>
+      <button class="g danger" id="clr">Clear all</button>
+    </div>
+    <div id="status" role="status" aria-live="polite"></div>
+    <div id="list"></div>
+    <details id="help">
+      <summary>How to connect your Grok Bot</summary>
+      <ol>
+        <li>Ask your Grok Bot to create a routine with a webhook trigger that treats incoming payloads as review notes.</li>
+        <li>Open the routine panel and copy the webhook URL and the sender key.</li>
+        <li>Click Settings on this page and paste them in.</li>
+        <li>Press Send test ping. Your bot should confirm it got the ping.</li>
+      </ol>
+      <div class="muted">After that, Send to my bot delivers your notes straight to your bot. Copy all notes still works if you prefer to paste them into a chat.</div>
+    </details>
+  </section>
+</main>
+
+<dialog id="dlg">
+  <div class="dlg">
+    <h2><span>Settings</span><button class="g" id="dlgClose" aria-label="Close">Close</button></h2>
+    <div class="field"><label for="url">Bot webhook URL</label><input type="url" id="url" placeholder="https://..." autocomplete="off" spellcheck="false"></div>
+    <div class="field"><label for="key">Sender key</label>
+      <div style="display:flex;gap:6px"><input type="password" id="key" autocomplete="off" spellcheck="false"><button class="g" id="showKey" type="button">Show</button></div>
+      <div class="note"><span class="lock">&#128274; Stored only in your browser.</span> The URL and key are saved in this browser's local storage on this device. They are never put in the page, a file, or sent anywhere except to the webhook URL above.</div>
+    </div>
+    <details class="adv"><summary>Advanced: how the key is sent</summary>
+      <label class="radio"><input type="radio" name="mode" value="bearer"><span>Header <code>Authorization: Bearer &lt;key&gt;</code> (default)</span></label>
+      <label class="radio"><input type="radio" name="mode" value="header"><span>Custom header name</span></label>
+      <div class="field" id="hdrWrap" style="margin-left:24px"><input type="text" id="hdrName" placeholder="X-Sender-Key" spellcheck="false"></div>
+      <label class="radio"><input type="radio" name="mode" value="query"><span>Query parameter name</span></label>
+      <div class="field" id="qWrap" style="margin-left:24px"><input type="text" id="qName" placeholder="key" spellcheck="false"></div>
+    </details>
+    <div class="row" style="margin-top:14px">
+      <button class="p" id="ping">Send test ping</button>
+      <button id="saveS">Save</button>
+      <button class="g danger" id="forget">Forget URL and key</button>
+    </div>
+    <div id="pingStatus" class="muted" style="margin-top:8px"></div>
+  </div>
+</dialog>
+
+<script>
+(function(){
+"use strict";
+var VERSION="1.0.0";
+var NS="review_app_v1";
+var $=function(id){return document.getElementById(id)};
+var v=$("v"),t=$("t"),stage=$("stage");
+var FN="",DUR=0,K="",notes=[];
+
+function lsGet(k,d){try{var x=localStorage.getItem(k);return x===null?d:x}catch(e){return d}}
+function lsSet(k,x){try{localStorage.setItem(k,x)}catch(e){}}
+function lsDel(k){try{localStorage.removeItem(k)}catch(e){}}
+
+/* time format m:ss.s, same as the original app */
+function f(s){var d=Math.round(s*10);var m=Math.floor(d/600),x=((d%600)/10).toFixed(1).padStart(4,"0");return m+":"+x}
+function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+
+/* == video loading == */
+function load(file){
+  if(!file)return;
+  if(file.type&&!/^video\//.test(file.type)&&!/\.(mp4|m4v|mov|webm|mkv|ogv|avi)$/i.test(file.name)){setStatus("err","That file does not look like a video.");return}
+  if(v.dataset.u)URL.revokeObjectURL(v.dataset.u);
+  var u=URL.createObjectURL(file);v.dataset.u=u;
+  FN=file.name;DUR=0;K="";notes=[];editing=-1;editRef=null;
+  v.src=u;stage.classList.add("has");
+  $("fn").textContent=FN;document.title="Review: "+FN;
+  draw();
+}
+v.addEventListener("loadedmetadata",function(){
+  DUR=isFinite(v.duration)?v.duration:0;
+  K=NS+":notes:"+FN+"|"+DUR.toFixed(2);
+  notes=parse(lsGet(K,null));
+  if(!notes.length){ /* bring over notes saved by the older single file version, if any */
+    var old=parse(lsGet("smooche_review_v1:"+FN,null));
+    if(old.length){notes=old;saveNotes()}
+  }
+  $("fn").textContent=FN+"  ("+f(DUR)+")";
+  draw();info();
+});
+function parse(x){try{var a=JSON.parse(x||"[]");return Array.isArray(a)?a.filter(function(n){return n&&typeof n.s==="number"&&typeof n.txt==="string"}):[]}catch(e){return[]}}
+function openPicker(){$("file").value="";$("file").click()}
+$("pick").onclick=openPicker;$("pick2").onclick=openPicker;
+$("file").onchange=function(e){load(e.target.files[0])};
+var dragN=0;
+document.addEventListener("dragenter",function(e){e.preventDefault();dragN++;stage.classList.add("drag")});
+document.addEventListener("dragleave",function(){dragN=Math.max(0,dragN-1);if(!dragN)stage.classList.remove("drag")});
+document.addEventListener("dragover",function(e){e.preventDefault()});
+document.addEventListener("drop",function(e){e.preventDefault();dragN=0;stage.classList.remove("drag");
+  var fl=Array.prototype.slice.call(e.dataTransfer.files).find(function(x){return /^video\//.test(x.type)||/\.(mp4|m4v|mov|webm|mkv|ogv)$/i.test(x.name)});
+  if(fl)load(fl);else setStatus("err","Drop a video file to load it.")});
+
+function info(){$("now").textContent=f(v.currentTime||0);
+  $("info").textContent=t.dataset.s!==undefined?"Note will be placed at "+f(+t.dataset.s):(FN?"Note will be placed at the current time ("+f(v.currentTime||0)+")":"Load a video to start adding notes.")}
+v.addEventListener("timeupdate",info);v.addEventListener("seeked",info);
+
+/* == notes == */
+function saveNotes(){if(K)lsSet(K,JSON.stringify(notes));draw()}
+var editing=-1,editRef=null;
+function draw(){
+  var L=$("list");L.innerHTML="";
+  notes.sort(function(a,b){return a.s-b.s});
+  if(editRef)editing=notes.indexOf(editRef);
+  if(!notes.length){L.innerHTML='<div class="muted">'+(FN?"No notes yet. Pause on a moment and press C.":"Notes appear here.")+"</div>";return}
+  notes.forEach(function(n,i){
+    var d=document.createElement("div");d.className="it";
+    if(i===editing){
+      d.innerHTML='<div class="top"><button class="ts" data-s="'+n.s+'">'+f(n.s)+'</button><span class="sp"></span><button class="g" data-act="now" data-i="'+i+'" title="Move this note to the current playback time">Use current time</button></div>'+
+        '<textarea data-edit="'+i+'">'+esc(n.txt)+'</textarea><div class="row"><button class="p" data-act="save" data-i="'+i+'">Save</button><button data-act="cancel">Cancel</button></div>';
+    }else{
+      d.innerHTML='<div class="top"><button class="ts" data-s="'+n.s+'" title="Jump to this moment">'+f(n.s)+'</button><span class="sp"></span><button class="g" data-act="edit" data-i="'+i+'">Edit</button><button class="g danger" data-act="del" data-i="'+i+'" title="Delete note">Delete</button></div><div class="txt">'+esc(n.txt)+"</div>";
+    }
+    L.appendChild(d);
+  });
+  var ed=L.querySelector("textarea[data-edit]");
+  if(ed){ed.focus();ed.setSelectionRange(ed.value.length,ed.value.length);
+    ed.onkeydown=function(e){if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){e.preventDefault();commitEdit(+ed.dataset.edit)}if(e.key==="Escape"){editing=-1;editRef=null;draw()}}}
+}
+function commitEdit(i){var ed=$("list").querySelector("textarea[data-edit]");var x=ed?ed.value.trim():"";if(x)notes[i].txt=x;editing=-1;editRef=null;saveNotes()}
+$("list").onclick=function(e){
+  var b=e.target.closest("button");if(!b)return;
+  if(b.dataset.s!==undefined){if(v.src){v.currentTime=+b.dataset.s;v.pause()}return}
+  var i=+b.dataset.i,a=b.dataset.act;
+  if(a==="del"){if(confirm("Delete this note?")){notes.splice(i,1);editing=-1;editRef=null;saveNotes()}}
+  else if(a==="edit"){editing=i;editRef=notes[i];draw()}
+  else if(a==="cancel"){editing=-1;editRef=null;draw()}
+  else if(a==="save"){commitEdit(i)}
+  else if(a==="now"){var ed=$("list").querySelector("textarea[data-edit]");var keep=ed?ed.value:notes[i].txt;editRef=notes[i];notes[i].s=+(v.currentTime||0).toFixed(2);notes[i].txt=keep;saveNotes();}
+};
+function add(){
+  var x=t.value.trim();if(!x)return;
+  if(!FN){setStatus("err","Load a video first so the note has a time.");return}
+  var s=t.dataset.s!==undefined?+t.dataset.s:v.currentTime;
+  notes.push({s:+(+s||0).toFixed(2),txt:x});t.value="";delete t.dataset.s;saveNotes();t.blur();info();
+}
+$("add").onclick=add;
+t.onkeydown=function(e){if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){e.preventDefault();add()}if(e.key==="Escape"){delete t.dataset.s;t.blur();info()}};
+$("clr").onclick=function(){if(!notes.length)return;if(confirm("Delete all notes for this video?")){notes=[];editing=-1;editRef=null;saveNotes()}};
+
+/* reviewer name */
+var rv=$("reviewer");rv.value=lsGet(NS+":reviewer","");
+rv.addEventListener("input",function(){lsSet(NS+":reviewer",rv.value.trim())});
+
+/* == copy (same plain text format as the original app) == */
+function notesText(){
+  var who=rv.value.trim();
+  return "Video notes"+(FN?" for "+FN:"")+(who?" from "+who:"")+":\n"+notes.map(function(n){return f(n.s)+": "+n.txt}).join("\n");
+}
+function copyText(s){
+  function fallback(){
+    try{var ta=document.createElement("textarea");ta.value=s;ta.setAttribute("readonly","");ta.style.position="fixed";ta.style.top="-1000px";document.body.appendChild(ta);ta.select();var ok=document.execCommand("copy");document.body.removeChild(ta);return ok?Promise.resolve():Promise.reject(new Error("copy failed"))}catch(e){return Promise.reject(e)}
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText){return navigator.clipboard.writeText(s).catch(fallback)}
+  return fallback();
+}
+$("cp").onclick=function(){
+  if(!notes.length){setStatus("info","There are no notes to copy yet.");return}
+  var s=notesText();
+  copyText(s).then(function(){flash($("cp"),"Copied","Copy all notes");setStatus("ok","Notes copied. Paste them into your chat.")},
+    function(){setStatus("err","Could not copy automatically. Select the text below and copy it.",s)});
+};
+function flash(b,txt,back){b.textContent=txt;setTimeout(function(){b.textContent=back},2000)}
+
+/* == status == */
+function setStatus(kind,msg,manualText){
+  var el=$("status");el.className="show "+kind;el.textContent=msg;
+  if(manualText){var ta=document.createElement("textarea");ta.readOnly=true;ta.value=manualText;el.appendChild(ta);ta.focus();ta.select()}
+}
+
+/* == settings == */
+var SK=NS+":settings";
+function getS(){var d={url:"",key:"",mode:"bearer",hdr:"X-Sender-Key",q:"key"};try{var o=JSON.parse(lsGet(SK,"{}"));for(var k in o)if(o[k]!==undefined)d[k]=o[k]}catch(e){}return d}
+function fillS(){var s=getS();$("url").value=s.url;$("key").value=s.key;$("hdrName").value=s.hdr;$("qName").value=s.q;
+  var r=document.querySelector('input[name=mode][value="'+s.mode+'"]')||document.querySelector('input[name=mode][value=bearer]');r.checked=true;modeUI()}
+function readS(){var m=document.querySelector("input[name=mode]:checked");return{url:$("url").value.trim(),key:$("key").value,mode:m?m.value:"bearer",hdr:$("hdrName").value.trim()||"X-Sender-Key",q:$("qName").value.trim()||"key"}}
+function storeS(){lsSet(SK,JSON.stringify(readS()))}
+function modeUI(){var m=readS().mode;$("hdrName").disabled=m!=="header";$("qName").disabled=m!=="query"}
+Array.prototype.forEach.call(document.querySelectorAll("input[name=mode]"),function(r){r.onchange=function(){modeUI();storeS()}});
+["url","key","hdrName","qName"].forEach(function(id){$(id).addEventListener("change",storeS)});
+$("gear").onclick=function(){fillS();$("pingStatus").textContent="";$("dlg").showModal()};
+$("dlgClose").onclick=function(){storeS();$("dlg").close()};
+$("dlg").addEventListener("close",storeS);
+$("saveS").onclick=function(){storeS();$("pingStatus").textContent="Saved in this browser."};
+$("forget").onclick=function(){if(confirm("Remove the webhook URL and sender key from this browser?")){lsDel(SK);fillS();$("pingStatus").textContent="Removed."}};
+$("showKey").onclick=function(){var k=$("key");k.type=k.type==="password"?"text":"password";this.textContent=k.type==="password"?"Show":"Hide"};
+$("helpBtn").onclick=function(){var h=$("help");h.open=true;h.scrollIntoView({behavior:"smooth",block:"nearest"})};
+
+/* == send == */
+function payload(type){
+  return {type:type,app:"review-app",version:VERSION,
+    video:{name:FN||null,duration_s:DUR?+DUR.toFixed(2):null},
+    reviewer:rv.value.trim()||null,
+    sent_at:new Date().toISOString(),
+    notes:type==="test"?[]:notes.map(function(n){return{t_s:+n.s.toFixed(2),timecode:f(n.s),text:n.txt}})};
+}
+function post(type){
+  var s=getS();
+  if(!s.url)return Promise.reject({setup:true,msg:"Add your bot webhook URL in Settings first."});
+  var u;try{u=new URL(s.url)}catch(e){return Promise.reject({setup:true,msg:"The webhook URL does not look valid. It should start with https://"})}
+  var h={"Content-Type":"application/json"};
+  if(s.key){
+    if(s.mode==="header")h[s.hdr]=s.key;
+    else if(s.mode==="query")u.searchParams.set(s.q,s.key);
+    else h["Authorization"]="Bearer "+s.key;
+  }
+  return fetch(u.toString(),{method:"POST",mode:"cors",credentials:"omit",cache:"no-store",headers:h,body:JSON.stringify(payload(type))})
+    .then(function(r){return r.text().catch(function(){return ""}).then(function(body){return{ok:r.ok,status:r.status,body:body}})});
+}
+function describeHttp(r){var b=(r.body||"").trim().slice(0,200);return "HTTP "+r.status+(b?": "+b:"")}
+
+$("send").onclick=function(){
+  if(!FN){setStatus("err","Load a video and add some notes first.");return}
+  if(!notes.length){setStatus("info","There are no notes to send yet.");return}
+  var btn=$("send");btn.disabled=true;btn.textContent="Sending...";setStatus("info","Sending "+notes.length+" note"+(notes.length===1?"":"s")+" to your bot...");
+  var text=notesText();
+  post("review_notes").then(function(r){
+    if(r.ok)setStatus("ok","Sent "+notes.length+" note"+(notes.length===1?"":"s")+" to your bot ("+r.status+").");
+    else if(r.status===401||r.status===403)setStatus("err","Your bot refused the request ("+describeHttp(r)+"). Check the sender key and how it is sent in Settings.");
+    else setStatus("err","Your bot answered with an error ("+describeHttp(r)+"). The notes were not confirmed as received.");
+  },function(err){
+    if(err&&err.setup){setStatus("err",err.msg);fillS();$("dlg").showModal();return}
+    var isNet=err instanceof TypeError;
+    copyText(text).then(function(){
+      setStatus("err",(isNet?"The bot address blocked the browser request (network or CORS error), so the notes could not be sent from this page. ":"Sending failed. ")+"Your notes were copied to the clipboard instead. Paste them into a chat with your bot.");
+    },function(){
+      setStatus("err",(isNet?"The bot address blocked the browser request (network or CORS error), so the notes could not be sent from this page. ":"Sending failed. ")+"Copy the notes below and paste them into a chat with your bot.",text);
+    });
+  }).then(function(){btn.disabled=false;btn.textContent="Send to my bot"});
+};
+$("ping").onclick=function(){
+  storeS();var ps=$("pingStatus"),b=this;b.disabled=true;ps.textContent="Sending test ping...";
+  post("test").then(function(r){
+    ps.textContent=r.ok?"Test ping delivered ("+r.status+"). Check your bot.":"Your bot answered with an error ("+describeHttp(r)+")."+(r.status===401||r.status===403?" Check the sender key and how it is sent.":"");
+  },function(err){
+    ps.textContent=err&&err.setup?err.msg:(err instanceof TypeError?"The bot address blocked the browser request (network or CORS error). Check the URL. If it is right, the bot may not accept requests from web pages; use Copy all notes instead.":"Test ping failed: "+(err&&err.message||err));
+  }).then(function(){b.disabled=false});
+};
+
+/* == keyboard == */
+document.addEventListener("keydown",function(e){
+  var a=document.activeElement,tag=a&&a.tagName;
+  if(tag==="TEXTAREA"||tag==="SELECT"||(tag==="INPUT"&&a.type!=="file"&&a.type!=="radio")||$("dlg").open)return;
+  if(e.metaKey||e.ctrlKey||e.altKey)return;
+  if(!v.src)return;
+  var k=e.key;
+  if(k===" "){e.preventDefault();v.paused?v.play():v.pause()}
+  else if(k==="c"||k==="C"){e.preventDefault();v.pause();t.dataset.s=v.currentTime;t.focus();info()}
+  else if(k==="ArrowRight"){e.preventDefault();v.currentTime=Math.min(v.duration||1e9,v.currentTime+(e.shiftKey?5:1))}
+  else if(k==="ArrowLeft"){e.preventDefault();v.currentTime=Math.max(0,v.currentTime-(e.shiftKey?5:1))}
+  else if(k==="."){v.pause();v.currentTime+=1/24}
+  else if(k===","){v.pause();v.currentTime=Math.max(0,v.currentTime-1/24)}
+});
+/* keep space from activating a focused button instead of play or pause */
+document.addEventListener("keyup",function(e){if(e.key===" "&&document.activeElement&&document.activeElement.tagName==="BUTTON"&&v.src)e.preventDefault()});
+
+draw();info();
+})();
+</script>
+</body>
+</html>
