@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Review</title>
 <link rel="icon" href="data:,">
-<meta name="description" content="Watch a video from your own computer, add timestamped notes, and send them to your Grok Bot.">
+<meta name="description" content="Watch a video from your own computer, add timestamped notes, and copy them.">
 <style>
 *{box-sizing:border-box}
 html,body{height:100%}
@@ -18,7 +18,7 @@ main{display:flex;gap:20px;padding:20px;height:calc(100% - 55px)}
 #left{flex:1 1 auto;display:flex;flex-direction:column;gap:10px;min-width:0}
 #stage{position:relative;flex:1;min-height:240px;background:#0a0b0d;border:1px dashed #2f353d;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden}
 #stage.drag{border-color:#5b9cf5;background:#0f1622}
-#stage.has{border-style:solid;border-color:#1d2126}
+#stage.has{border-style:solid;border-color:#1d2126;overflow:visible}
 video{max-width:100%;max-height:100%;width:auto;height:auto;display:none;background:#000}
 #stage.has video{display:block;width:100%;height:100%;object-fit:contain}
 #stage.has #empty{display:none}
@@ -42,17 +42,21 @@ button.p:hover{background:#4a88ec}
 button.g{background:transparent;border-color:transparent;color:#9aa1aa;padding:6px 8px}
 button.g:hover{color:#e6e8eb;background:#22262c}
 button.danger:hover{background:#4a2327;border-color:#6b2c33}
+button.armed{background:#1d4f91;border-color:#3d7be0;color:#fff}
+button.armed:hover{background:#2460b0}
 .row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .field{margin-bottom:10px}
 #info{font-size:12px;color:#8a9099;margin:6px 0 0}
 #list{flex:1;overflow:auto;margin-top:12px;padding-right:2px}
 .it{background:#181b20;border:1px solid #262b32;border-radius:10px;padding:8px 10px;margin-bottom:8px}
+.it.hot{border-color:#3d7be0}
 .it .top{display:flex;align-items:center;gap:6px}
 .ts{color:#7fb4ff;cursor:pointer;font-weight:650;font-variant-numeric:tabular-nums;background:none;border:0;padding:0}
 .ts:hover{text-decoration:underline;background:none}
 .it .sp{flex:1}
 .it .txt{white-space:pre-wrap;word-wrap:break-word;margin-top:2px}
 .it button.g{padding:2px 6px;font-size:12px}
+.pinmark{display:inline-block;vertical-align:-2px;flex:none}
 .muted{color:#8a9099;font-size:12px}
 #status{margin-top:10px;font-size:13px;border-radius:8px;padding:0;display:none}
 #status.show{display:block;padding:8px 10px}
@@ -60,20 +64,23 @@ button.danger:hover{background:#4a2327;border-color:#6b2c33}
 #status.err{background:#3a1a1d;border:1px solid #6b2c33;color:#f3c4c8}
 #status.info{background:#1a2333;border:1px solid #2c3c58;color:#c8d8f3}
 #status textarea{margin-top:6px;height:90px;font:12px ui-monospace,Menlo,monospace}
-dialog{background:#171a1f;color:#e6e8eb;border:1px solid #2f353d;border-radius:14px;padding:0;width:min(560px,94vw);max-height:90vh}
-dialog::backdrop{background:rgba(0,0,0,.6)}
-.dlg{padding:18px 20px;overflow:auto;max-height:90vh}
-.dlg h2{display:flex;align-items:center}
-.dlg h2 span{flex:1}
-.note{font-size:12px;color:#9aa1aa;margin-top:4px}
-.lock{color:#bfe9cf}
-details{border:1px solid #2a2f36;border-radius:10px;padding:8px 12px;margin-top:12px;background:#15181c}
-summary{cursor:pointer;font-weight:600}
-details ol{margin:8px 0 4px;padding-left:20px}
-details li{margin-bottom:4px}
-.radio{display:flex;gap:8px;align-items:flex-start;margin:6px 0;font-size:13px;color:#e6e8eb}
-.radio input{margin-top:3px}
-.adv{margin-top:6px}
+#pinLayer{position:absolute;z-index:3;pointer-events:none}
+#pinCatch{position:absolute;inset:0;pointer-events:none}
+#pinLayer.arm #pinCatch{pointer-events:auto;touch-action:none;cursor:crosshair}
+#pinMarks{position:absolute;inset:0;pointer-events:none}
+.pin{position:absolute;min-width:24px;height:24px;padding:0 6px;border-radius:999px;transform:translate(-50%,-50%);background:#3d7be0;color:#fff;border:2px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.55);font:700 12px/20px system-ui,sans-serif;text-align:center;cursor:grab;pointer-events:auto;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;z-index:2}
+.pin:active{cursor:grabbing}
+.pin.hot{background:#e8eef8;color:#16325c;border-color:#9ec0ff;z-index:3}
+.pin .num{pointer-events:none}
+.pin .x{position:absolute;top:-8px;right:-8px;width:16px;height:16px;padding:0;border-radius:50%;background:#2a2f36;color:#e6e8eb;border:1px solid #9aa1aa;font:12px/14px system-ui,sans-serif;line-height:14px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.pin .x:hover{background:#4a2327;border-color:#6b2c33;color:#fff}
+#saved{margin-top:16px}
+#saved h2{margin-top:0}
+.sv{background:#181b20;border:1px solid #262b32;border-radius:10px;padding:8px 10px;margin:0 0 8px}
+.sv .nm{font-weight:650}
+.sv .row{margin-top:6px}
+.sv pre{white-space:pre-wrap;word-wrap:break-word;margin:8px 0 0;padding:8px;border-radius:8px;background:#0f1114;color:#d5d9df;font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace}
+button.wide{flex:1}
 .hidden{display:none!important}
 @media (max-width:860px){main{flex-direction:column;height:auto}#right{flex:none;max-width:none}#stage{min-height:50vh}#list{max-height:none}}
 </style>
@@ -82,90 +89,80 @@ details li{margin-bottom:4px}
 <header>
   <h1>Review</h1>
   <div class="sub" id="fn">No video loaded</div>
-  <button class="g" id="helpBtn" title="How to connect your Grok Bot">Help</button>
-  <button class="g" id="gear" title="Settings" aria-label="Settings">&#9881; Settings</button>
 </header>
 <main>
   <section id="left">
     <div id="stage">
       <div id="empty"><b>Choose a video or drag one here</b>The file stays on your computer. Nothing is uploaded.<div class="row" style="justify-content:center;margin-top:12px"><button class="p" id="pick">Choose video</button></div></div>
       <video id="v" controls playsinline></video>
+      <div id="pinLayer" class="hidden"><div id="pinCatch"></div><div id="pinMarks"></div></div>
     </div>
     <input type="file" id="file" accept="video/*" class="hidden">
     <div id="bar">
       <span id="now">0:00.0</span>
       <button id="pick2" class="g">Open another video</button>
       <span class="sp" style="flex:1"></span>
-      <span class="keys"><kbd>Space</kbd> play or pause &middot; <kbd>C</kbd> note at current time &middot; <kbd>&larr;</kbd> <kbd>&rarr;</kbd> 1s &middot; <kbd>Shift</kbd>+arrows 5s &middot; <kbd>,</kbd> <kbd>.</kbd> one frame</span>
+      <span class="keys"><kbd>Space</kbd> play or pause &middot; <kbd>C</kbd> note at current time &middot; <kbd>P</kbd> pin &middot; <kbd>&larr;</kbd> <kbd>&rarr;</kbd> 1s &middot; <kbd>Shift</kbd>+arrows 5s &middot; <kbd>,</kbd> <kbd>.</kbd> one frame</span>
     </div>
   </section>
   <section id="right">
     <h2>Notes</h2>
-    <div class="field"><label for="reviewer">Your name (optional)</label><input type="text" id="reviewer" placeholder="Shown with your notes" autocomplete="name"></div>
     <label for="t">Note</label>
-    <textarea id="t" placeholder="What do you see at this moment? Press C to jump here, Ctrl or Cmd + Enter to save."></textarea>
+    <textarea id="t" placeholder="What do you see at this moment? Press C for this time, P then click or tap the frame to pin. Ctrl or Cmd + Enter saves."></textarea>
     <div id="info"></div>
     <div class="row">
+      <button id="pinBtn" aria-pressed="false" title="Pin a spot on the frame (P)">Pin</button>
       <button class="p" id="add">Add note at current time</button>
-      <button id="cp">Copy all notes</button>
-      <button class="p" id="send">Send to my bot</button>
       <button class="g danger" id="clr">Clear all</button>
+    </div>
+    <div class="row">
+      <button class="p wide" id="cp">Copy all notes</button>
     </div>
     <div id="status" role="status" aria-live="polite"></div>
     <div id="list"></div>
-    <details id="help">
-      <summary>How to connect your Grok Bot</summary>
-      <ol>
-        <li>Ask your Grok Bot to create a routine with a webhook trigger that treats incoming payloads as review notes.</li>
-        <li>Open the routine panel and copy the webhook URL and the sender key.</li>
-        <li>Click Settings on this page and paste them in.</li>
-        <li>Press Send test ping. Your bot should confirm it got the ping.</li>
-      </ol>
-      <div class="muted">After that, Send to my bot delivers your notes straight to your bot. Copy all notes still works if you prefer to paste them into a chat.</div>
-    </details>
+    <div id="saved" class="hidden"></div>
   </section>
 </main>
-
-<dialog id="dlg">
-  <div class="dlg">
-    <h2><span>Settings</span><button class="g" id="dlgClose" aria-label="Close">Close</button></h2>
-    <div class="field"><label for="url">Bot webhook URL</label><input type="url" id="url" placeholder="https://..." autocomplete="off" spellcheck="false"></div>
-    <div class="field"><label for="key">Sender key</label>
-      <div style="display:flex;gap:6px"><input type="password" id="key" autocomplete="off" spellcheck="false"><button class="g" id="showKey" type="button">Show</button></div>
-      <div class="note"><span class="lock">&#128274; Stored only in your browser.</span> The URL and key are saved in this browser's local storage on this device. They are never put in the page, a file, or sent anywhere except to the webhook URL above.</div>
-    </div>
-    <details class="adv"><summary>Advanced: how the key is sent</summary>
-      <label class="radio"><input type="radio" name="mode" value="bearer"><span>Header <code>Authorization: Bearer &lt;key&gt;</code> (default)</span></label>
-      <label class="radio"><input type="radio" name="mode" value="header"><span>Custom header name</span></label>
-      <div class="field" id="hdrWrap" style="margin-left:24px"><input type="text" id="hdrName" placeholder="X-Sender-Key" spellcheck="false"></div>
-      <label class="radio"><input type="radio" name="mode" value="query"><span>Query parameter name</span></label>
-      <div class="field" id="qWrap" style="margin-left:24px"><input type="text" id="qName" placeholder="key" spellcheck="false"></div>
-    </details>
-    <div class="row" style="margin-top:14px">
-      <button class="p" id="ping">Send test ping</button>
-      <button id="saveS">Save</button>
-      <button class="g danger" id="forget">Forget URL and key</button>
-    </div>
-    <div id="pingStatus" class="muted" style="margin-top:8px"></div>
-  </div>
-</dialog>
 
 <script>
 (function(){
 "use strict";
-var VERSION="1.0.0";
+var VERSION="1.1.0";
 var NS="review_app_v1";
 var $=function(id){return document.getElementById(id)};
 var v=$("v"),t=$("t"),stage=$("stage");
 var FN="",DUR=0,K="",notes=[];
+var editing=-1,editRef=null,highlightRef=null;
+var pinMode=false,draftPin=null,lastEdited=null,dirty=false,viewKey=null;
+var pinSig="",drag=null,lastPlace=0;
+var PIN_ICON='<svg class="pinmark" viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path fill="#7fb4ff" d="M8 1.2a3.6 3.6 0 0 0-3.6 3.6c0 2.7 3.6 8 3.6 8s3.6-5.3 3.6-8A3.6 3.6 0 0 0 8 1.2zm0 4.9a1.3 1.3 0 1 1 0-2.6 1.3 1.3 0 0 1 0 2.6z"/></svg>';
 
 function lsGet(k,d){try{var x=localStorage.getItem(k);return x===null?d:x}catch(e){return d}}
 function lsSet(k,x){try{localStorage.setItem(k,x)}catch(e){}}
 function lsDel(k){try{localStorage.removeItem(k)}catch(e){}}
 
-/* time format m:ss.s, same as the original app */
+/* on-screen clock stays compact. Copied notes use hh:mm:ss.d */
 function f(s){var d=Math.round(s*10);var m=Math.floor(d/600),x=((d%600)/10).toFixed(1).padStart(4,"0");return m+":"+x}
+function fc(s){
+  s=Math.max(0,Number(s)||0);
+  var tenths=Math.round(s*10),frac=tenths%10,total=Math.floor(tenths/10);
+  var secs=total%60,mins=Math.floor(total/60)%60,hours=Math.floor(total/3600);
+  function pad(n){return (n<10?"0":"")+n}
+  return pad(hours)+":"+pad(mins)+":"+pad(secs)+"."+frac;
+}
+function oneLine(txt){return String(txt==null?"":txt).replace(/\s+/g," ").trim()}
 function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function normPin(p){
+  if(!p||typeof p!=="object")return null;
+  if(typeof p.x!=="number"||typeof p.y!=="number")return null;
+  if(!isFinite(p.x)||!isFinite(p.y))return null;
+  var x=Math.min(1,Math.max(0,p.x)),y=Math.min(1,Math.max(0,p.y));
+  return {x:Math.round(x*10000)/10000,y:Math.round(y*10000)/10000};
+}
+function pinPhrase(n){
+  var p=normPin(n&&n.pin);if(!p)return "";
+  return " [pin x="+Math.round(p.x*100)+"% y="+Math.round(p.y*100)+"%]";
+}
 
 /* == video loading == */
 function load(file){
@@ -173,23 +170,39 @@ function load(file){
   if(file.type&&!/^video\//.test(file.type)&&!/\.(mp4|m4v|mov|webm|mkv|ogv|avi)$/i.test(file.name)){setStatus("err","That file does not look like a video.");return}
   if(v.dataset.u)URL.revokeObjectURL(v.dataset.u);
   var u=URL.createObjectURL(file);v.dataset.u=u;
-  FN=file.name;DUR=0;K="";notes=[];editing=-1;editRef=null;
+  FN=file.name;DUR=0;K="";notes=[];editing=-1;editRef=null;highlightRef=null;draftPin=null;lastEdited=null;dirty=false;
+  delete t.dataset.s;
   v.src=u;stage.classList.add("has");
+  setPinMode(false);
   $("fn").textContent=FN;document.title="Review: "+FN;
-  draw();
+  pinSig="";draw();renderSaved();
 }
 v.addEventListener("loadedmetadata",function(){
   DUR=isFinite(v.duration)?v.duration:0;
   K=NS+":notes:"+FN+"|"+DUR.toFixed(2);
-  notes=parse(lsGet(K,null));
+  var rec=readRecord(lsGet(K,null));
+  notes=rec.notes;lastEdited=rec.lastEdited;
   if(!notes.length){ /* bring over notes saved by the older single file version, if any */
-    var old=parse(lsGet("smooche_review_v1:"+FN,null));
-    if(old.length){notes=old;saveNotes()}
+    var old=readRecord(lsGet("smooche_review_v1:"+FN,null));
+    if(old.notes.length){notes=old.notes;lastEdited=null;dirty=true;writeStore()}
   }
   $("fn").textContent=FN+"  ("+f(DUR)+")";
-  draw();info();
+  pinSig="";draw();info();renderSaved();
 });
-function parse(x){try{var a=JSON.parse(x||"[]");return Array.isArray(a)?a.filter(function(n){return n&&typeof n.s==="number"&&typeof n.txt==="string"}):[]}catch(e){return[]}}
+function cleanNote(n){
+  if(!n||typeof n.s!=="number"||typeof n.txt!=="string"||!isFinite(n.s))return null;
+  var o={s:n.s,txt:n.txt};var p=normPin(n.pin);if(p)o.pin=p;return o;
+}
+function readRecord(x){
+  var empty={notes:[],lastEdited:null};
+  if(x==null||x==="")return empty;
+  try{
+    var o=JSON.parse(x);
+    if(Array.isArray(o))return {notes:o.map(cleanNote).filter(Boolean),lastEdited:null};
+    if(o&&Array.isArray(o.notes))return {notes:o.notes.map(cleanNote).filter(Boolean),lastEdited:(typeof o.lastEdited==="number"&&isFinite(o.lastEdited))?o.lastEdited:null};
+  }catch(e){}
+  return empty;
+}
 function openPicker(){$("file").value="";$("file").click()}
 $("pick").onclick=openPicker;$("pick2").onclick=openPicker;
 $("file").onchange=function(e){load(e.target.files[0])};
@@ -201,25 +214,60 @@ document.addEventListener("drop",function(e){e.preventDefault();dragN=0;stage.cl
   var fl=Array.prototype.slice.call(e.dataTransfer.files).find(function(x){return /^video\//.test(x.type)||/\.(mp4|m4v|mov|webm|mkv|ogv)$/i.test(x.name)});
   if(fl)load(fl);else setStatus("err","Drop a video file to load it.")});
 
-function info(){$("now").textContent=f(v.currentTime||0);
-  $("info").textContent=t.dataset.s!==undefined?"Note will be placed at "+f(+t.dataset.s):(FN?"Note will be placed at the current time ("+f(v.currentTime||0)+")":"Load a video to start adding notes.")}
+function info(){
+  $("now").textContent=f(v.currentTime||0);
+  var base;
+  if(!FN)base="Load a video to start adding notes.";
+  else if(t.dataset.s!==undefined)base="Note will be placed at "+f(+t.dataset.s);
+  else base="Note will be placed at the current time ("+f(v.currentTime||0)+").";
+  if(draftPin)base="Pin at x "+Math.round(draftPin.x*100)+"% y "+Math.round(draftPin.y*100)+"%. "+base;
+  else if(pinMode&&FN)base="Pin mode is on. Click or tap the picture. "+base;
+  $("info").textContent=base;
+  syncHighlight();
+  renderPins();
+}
 v.addEventListener("timeupdate",info);v.addEventListener("seeked",info);
+v.addEventListener("pause",function(){renderPins()});
+v.addEventListener("play",function(){renderPins()});
+v.addEventListener("loadeddata",function(){pinSig="";layoutLayer();renderPins()});
+
+function syncHighlight(){
+  if(!highlightRef)return;
+  if(!isFinite(v.currentTime))return;
+  if(Math.abs(v.currentTime-highlightRef.s)<=1)return;
+  highlightRef=null;
+  if(editing===-1)draw();
+}
+
+/* == storage == */
+function writeStore(){
+  if(!K)return;
+  if(!notes.length){lsDel(K);lastEdited=null;dirty=false;return}
+  if(dirty){lastEdited=Date.now();dirty=false}
+  var rec={notes:notes};
+  if(typeof lastEdited==="number")rec.lastEdited=lastEdited;
+  lsSet(K,JSON.stringify(rec));
+}
+function saveNotes(){dirty=true;writeStore();pinSig="";draw();renderPins();renderSaved()}
+window.addEventListener("beforeunload",writeStore);
+window.addEventListener("pagehide",writeStore);
 
 /* == notes == */
-function saveNotes(){if(K)lsSet(K,JSON.stringify(notes));draw()}
-var editing=-1,editRef=null;
 function draw(){
   var L=$("list");L.innerHTML="";
-  notes.sort(function(a,b){return a.s-b.s});
+  notes.sort(function(a,b){return a.s-b.s||a.txt.localeCompare(b.txt)});
   if(editRef)editing=notes.indexOf(editRef);
-  if(!notes.length){L.innerHTML='<div class="muted">'+(FN?"No notes yet. Pause on a moment and press C.":"Notes appear here.")+"</div>";return}
+  if(editing<0){editing=-1;editRef=null}
+  if(!notes.length){L.innerHTML='<div class="muted">'+(FN?"No notes yet. Pause and press C, or press P and click the frame.":"Notes appear here.")+"</div>";return}
   notes.forEach(function(n,i){
-    var d=document.createElement("div");d.className="it";
+    var d=document.createElement("div");d.className="it"+(highlightRef===n?" hot":"");
+    var icon=n.pin?PIN_ICON:"";
+    var unpin=n.pin?'<button class="g" data-act="unpin" data-i="'+i+'">Remove pin</button>':"";
     if(i===editing){
-      d.innerHTML='<div class="top"><button class="ts" data-s="'+n.s+'">'+f(n.s)+'</button><span class="sp"></span><button class="g" data-act="now" data-i="'+i+'" title="Move this note to the current playback time">Use current time</button></div>'+
+      d.innerHTML='<div class="top"><button class="ts" data-s="'+n.s+'">'+f(n.s)+'</button>'+icon+'<span class="sp"></span>'+unpin+'<button class="g" data-act="now" data-i="'+i+'" title="Move this note to the current playback time">Use current time</button></div>'+
         '<textarea data-edit="'+i+'">'+esc(n.txt)+'</textarea><div class="row"><button class="p" data-act="save" data-i="'+i+'">Save</button><button data-act="cancel">Cancel</button></div>';
     }else{
-      d.innerHTML='<div class="top"><button class="ts" data-s="'+n.s+'" title="Jump to this moment">'+f(n.s)+'</button><span class="sp"></span><button class="g" data-act="edit" data-i="'+i+'">Edit</button><button class="g danger" data-act="del" data-i="'+i+'" title="Delete note">Delete</button></div><div class="txt">'+esc(n.txt)+"</div>";
+      d.innerHTML='<div class="top"><button class="ts" data-s="'+n.s+'" title="Jump to this moment">'+f(n.s)+'</button>'+icon+'<span class="sp"></span>'+unpin+'<button class="g" data-act="edit" data-i="'+i+'">Edit</button><button class="g danger" data-act="del" data-i="'+i+'" title="Delete note">Delete</button></div><div class="txt">'+esc(n.txt)+"</div>";
     }
     L.appendChild(d);
   });
@@ -228,35 +276,310 @@ function draw(){
     ed.onkeydown=function(e){if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){e.preventDefault();commitEdit(+ed.dataset.edit)}if(e.key==="Escape"){editing=-1;editRef=null;draw()}}}
 }
 function commitEdit(i){var ed=$("list").querySelector("textarea[data-edit]");var x=ed?ed.value.trim():"";if(x)notes[i].txt=x;editing=-1;editRef=null;saveNotes()}
+function noteIndexFromItem(it){
+  if(!it)return -1;
+  var items=[],ch=$("list").children;
+  for(var i=0;i<ch.length;i++) if(ch[i].classList&&ch[i].classList.contains("it")) items.push(ch[i]);
+  return items.indexOf(it);
+}
+function markHot(){
+  var ch=$("list").children,n=0;
+  for(var i=0;i<ch.length;i++){
+    if(!ch[i].classList||!ch[i].classList.contains("it")) continue;
+    ch[i].classList.toggle("hot",notes[n]===highlightRef);n++;
+  }
+}
 $("list").onclick=function(e){
-  var b=e.target.closest("button");if(!b)return;
-  if(b.dataset.s!==undefined){if(v.src){v.currentTime=+b.dataset.s;v.pause()}return}
+  if(e.target.closest("textarea"))return;
+  var b=e.target.closest("button");
+  if(!b){
+    var it=e.target.closest(".it");
+    if(!it||!v.src)return;
+    var idx=noteIndexFromItem(it);
+    if(idx<0||!notes[idx])return;
+    highlightRef=notes[idx];
+    v.currentTime=notes[idx].s;v.pause();
+    markHot();renderPins();
+    return;
+  }
+  if(b.dataset.s!==undefined){
+    var j=noteIndexFromItem(b.closest(".it"));
+    if(j>=0)highlightRef=notes[j];
+    if(v.src){v.currentTime=+b.dataset.s;v.pause()}
+    markHot();renderPins();
+    return;
+  }
   var i=+b.dataset.i,a=b.dataset.act;
-  if(a==="del"){if(confirm("Delete this note?")){notes.splice(i,1);editing=-1;editRef=null;saveNotes()}}
+  if(a==="del"){if(confirm("Delete this note?")){if(highlightRef===notes[i])highlightRef=null;notes.splice(i,1);editing=-1;editRef=null;saveNotes()}}
   else if(a==="edit"){editing=i;editRef=notes[i];draw()}
   else if(a==="cancel"){editing=-1;editRef=null;draw()}
   else if(a==="save"){commitEdit(i)}
-  else if(a==="now"){var ed=$("list").querySelector("textarea[data-edit]");var keep=ed?ed.value:notes[i].txt;editRef=notes[i];notes[i].s=+(v.currentTime||0).toFixed(2);notes[i].txt=keep;saveNotes();}
+  else if(a==="unpin"){
+    var ed=$("list").querySelector("textarea[data-edit]");
+    if(ed&&+ed.dataset.edit===i&&notes[i])notes[i].txt=ed.value;
+    if(notes[i])delete notes[i].pin;
+    saveNotes();
+  }
+  else if(a==="now"){var ed2=$("list").querySelector("textarea[data-edit]");var keep=ed2?ed2.value:notes[i].txt;editRef=notes[i];notes[i].s=+(v.currentTime||0).toFixed(2);notes[i].txt=keep;saveNotes();}
 };
 function add(){
   var x=t.value.trim();if(!x)return;
   if(!FN){setStatus("err","Load a video first so the note has a time.");return}
   var s=t.dataset.s!==undefined?+t.dataset.s:v.currentTime;
-  notes.push({s:+(+s||0).toFixed(2),txt:x});t.value="";delete t.dataset.s;saveNotes();t.blur();info();
+  var n={s:+(+s||0).toFixed(2),txt:x};
+  var p=normPin(draftPin);if(p)n.pin=p;
+  notes.push(n);highlightRef=n;
+  t.value="";delete t.dataset.s;draftPin=null;
+  saveNotes();t.blur();info();
 }
 $("add").onclick=add;
-t.onkeydown=function(e){if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){e.preventDefault();add()}if(e.key==="Escape"){delete t.dataset.s;t.blur();info()}};
-$("clr").onclick=function(){if(!notes.length)return;if(confirm("Delete all notes for this video?")){notes=[];editing=-1;editRef=null;saveNotes()}};
+t.onkeydown=function(e){
+  if(e.key==="Enter"&&(e.metaKey||e.ctrlKey)){e.preventDefault();add()}
+  if(e.key==="Escape"){draftPin=null;delete t.dataset.s;t.blur();pinSig="";info()}
+};
+$("clr").onclick=function(){
+  if(!notes.length)return;
+  if(!confirm("Delete all notes for this video?"))return;
+  notes=[];editing=-1;editRef=null;highlightRef=null;draftPin=null;delete t.dataset.s;
+  if(K)lsDel(K);lastEdited=null;dirty=false;pinSig="";
+  draw();renderPins();info();renderSaved();
+};
 
-/* reviewer name */
-var rv=$("reviewer");rv.value=lsGet(NS+":reviewer","");
-rv.addEventListener("input",function(){lsSet(NS+":reviewer",rv.value.trim())});
-
-/* == copy (same plain text format as the original app) == */
-function notesText(){
-  var who=rv.value.trim();
-  return "Video notes"+(FN?" for "+FN:"")+(who?" from "+who:"")+":\n"+notes.map(function(n){return f(n.s)+": "+n.txt}).join("\n");
+/* == pins == */
+function contentBox(){
+  if(!v.src||!v.videoWidth||!v.videoHeight)return null;
+  var vr=v.getBoundingClientRect();
+  if(!vr.width||!vr.height)return null;
+  var sr=stage.getBoundingClientRect();
+  var cs=getComputedStyle(stage);
+  var bl=parseFloat(cs.borderLeftWidth)||0,bt=parseFloat(cs.borderTopWidth)||0;
+  var er=vr.width/vr.height,ar=v.videoWidth/v.videoHeight;
+  var cw,ch,ox,oy;
+  if(er>ar){ch=vr.height;cw=ch*ar;ox=(vr.width-cw)/2;oy=0}
+  else{cw=vr.width;ch=cw/ar;ox=0;oy=(vr.height-ch)/2}
+  return {left:vr.left+ox-(sr.left+bl),top:vr.top+oy-(sr.top+bt),width:cw,height:ch,vLeft:vr.left+ox,vTop:vr.top+oy};
 }
+function pointToPin(e,clamp){
+  var b=contentBox();
+  if(!b||b.width<=0||b.height<=0)return null;
+  var x=(e.clientX-b.vLeft)/b.width,y=(e.clientY-b.vTop)/b.height;
+  if(!clamp&&(x<0||y<0||x>1||y>1))return null;
+  return normPin({x:x,y:y});
+}
+function layoutLayer(){
+  var layer=$("pinLayer"),b=contentBox();
+  if(!b){layer.classList.add("hidden");return}
+  layer.classList.remove("hidden");
+  layer.style.left=b.left+"px";layer.style.top=b.top+"px";
+  layer.style.width=b.width+"px";layer.style.height=b.height+"px";
+}
+function pinVisible(n){
+  if(!isFinite(v.currentTime))return false;
+  /* Within about 1 second of the note, including while paused on that frame. */
+  return Math.abs(v.currentTime-n.s)<=1;
+}
+function pinSignature(){
+  var parts=[];
+  notes.forEach(function(n,i){
+    if(!n.pin||!pinVisible(n))return;
+    parts.push(i+":"+n.pin.x+":"+n.pin.y+":"+(highlightRef===n?"1":"0"));
+  });
+  if(draftPin)parts.push("d:"+draftPin.x+":"+draftPin.y);
+  return parts.join("|");
+}
+function movePinEl(el,p){el.style.left=(p.x*100)+"%";el.style.top=(p.y*100)+"%";el.dataset.x=String(p.x);el.dataset.y=String(p.y)}
+function renderPins(){
+  layoutLayer();
+  if(drag)return;
+  var sig=pinSignature();
+  if(sig===pinSig)return;
+  pinSig=sig;
+  var box=$("pinMarks");box.innerHTML="";
+  notes.forEach(function(n,i){
+    if(!n.pin||!pinVisible(n))return;
+    box.appendChild(makePin(n.pin,String(i+1),String(i),highlightRef===n));
+  });
+  if(draftPin)box.appendChild(makePin(draftPin,"+","draft",true));
+}
+function makePin(pin,label,kind,hot){
+  var d=document.createElement("div");
+  d.className="pin"+(hot?" hot":"");
+  d.dataset.kind=kind;
+  d.setAttribute("role","button");
+  d.setAttribute("aria-label",kind==="draft"?"New pin":"Pin "+label);
+  movePinEl(d,pin);
+  var num=document.createElement("span");num.className="num";num.textContent=label;d.appendChild(num);
+  var x=document.createElement("button");
+  x.className="x";x.type="button";x.textContent="\u00d7";
+  x.setAttribute("aria-label",kind==="draft"?"Cancel pin":"Remove pin");
+  x.addEventListener("pointerdown",function(ev){ev.stopPropagation();ev.preventDefault()});
+  x.addEventListener("click",function(ev){
+    ev.stopPropagation();ev.preventDefault();
+    if(kind==="draft"){draftPin=null;delete t.dataset.s}
+    else if(notes[+kind]){delete notes[+kind].pin;dirty=true;writeStore()}
+    pinSig="";renderPins();info();if(kind!=="draft"){draw();renderSaved()}
+  });
+  d.appendChild(x);
+  d.addEventListener("pointerdown",pinDown);
+  d.addEventListener("pointermove",pinMove);
+  d.addEventListener("pointerup",pinUp);
+  d.addEventListener("pointercancel",pinUp);
+  return d;
+}
+function pinDown(e){
+  if(e.button!==undefined&&e.button!==0)return;
+  e.preventDefault();e.stopPropagation();
+  var el=e.currentTarget;
+  try{el.setPointerCapture(e.pointerId)}catch(err){}
+  drag={id:e.pointerId,kind:el.dataset.kind,moved:false,el:el,x:e.clientX,y:e.clientY};
+  v.pause();
+}
+function pinMove(e){
+  if(!drag||e.pointerId!==drag.id)return;
+  var dx=e.clientX-drag.x,dy=e.clientY-drag.y;
+  if(!drag.moved&&dx*dx+dy*dy<16)return;
+  drag.moved=true;
+  var p=pointToPin(e,true);if(!p)return;
+  if(drag.kind==="draft")draftPin=p;
+  else{
+    var n=notes[+drag.kind];if(!n)return;
+    n.pin=p;dirty=true;writeStore();
+  }
+  movePinEl(drag.el,p);
+  if(drag.kind==="draft")$("info").textContent="Pin at x "+Math.round(p.x*100)+"% y "+Math.round(p.y*100)+"%. "+(t.dataset.s!==undefined?"Note will be placed at "+f(+t.dataset.s):"");
+}
+function pinUp(e){
+  if(!drag||e.pointerId!==drag.id)return;
+  var moved=drag.moved,kind=drag.kind;
+  drag=null;
+  if(!moved&&kind!=="draft"){
+    var n=notes[+kind];
+    if(n&&v.src){highlightRef=n;v.currentTime=n.s;v.pause();markHot()}
+  }
+  if(moved&&kind!=="draft")renderSaved();
+  pinSig="";renderPins();info();
+}
+function placeDraft(e){
+  if(!pinMode)return;
+  if(e.button!==undefined&&e.button!==0)return;
+  var p=pointToPin(e,true);if(!p)return;
+  e.preventDefault();e.stopPropagation();
+  v.pause();
+  draftPin=p;
+  t.dataset.s=String(v.currentTime||0);
+  lastPlace=Date.now();
+  pinSig="";renderPins();t.focus();info();
+}
+$("pinCatch").addEventListener("pointerdown",placeDraft,{passive:false});
+$("pinCatch").addEventListener("click",function(e){
+  if(Date.now()-lastPlace<500){e.preventDefault();e.stopPropagation();return}
+  placeDraft(e);
+});
+function setPinMode(on){
+  pinMode=!!on&&!!v.src;
+  var b=$("pinBtn");
+  b.classList.toggle("armed",pinMode);
+  b.setAttribute("aria-pressed",pinMode?"true":"false");
+  b.title=pinMode?"Pin mode is on. Click or tap the picture.":"Pin a spot on the frame (P)";
+  $("pinLayer").classList.toggle("arm",pinMode);
+  if(v.src)v.controls=!pinMode;
+  info();
+}
+$("pinBtn").onclick=function(){
+  if(!v.src){setStatus("info","Load a video first, then turn on Pin and click the picture.");return}
+  setPinMode(!pinMode);
+};
+window.addEventListener("resize",function(){layoutLayer()});
+if(window.ResizeObserver){
+  var ro=new ResizeObserver(function(){layoutLayer()});
+  ro.observe(stage);ro.observe(v);
+}
+
+/* == saved notes == */
+function fmtWhen(ms){
+  if(typeof ms!=="number"||!isFinite(ms))return "Last edited time not recorded";
+  var d=new Date(ms);
+  if(isNaN(d.getTime()))return "Last edited time not recorded";
+  var months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  var h=d.getHours(),m=d.getMinutes(),ap=h>=12?"pm":"am";
+  h=h%12;if(h===0)h=12;
+  return "Last edited "+d.getDate()+" "+months[d.getMonth()]+" "+d.getFullYear()+", "+h+":"+(m<10?"0":"")+m+" "+ap;
+}
+function savedSets(){
+  var out=[],keys=[];
+  try{for(var i=0;i<localStorage.length;i++)keys.push(localStorage.key(i))}catch(e){return out}
+  keys.forEach(function(k){
+    if(!k||k.indexOf(NS+":notes:")!==0)return;
+    var label=k.slice((NS+":notes:").length);
+    var pipe=label.lastIndexOf("|");
+    var name=pipe>=0?label.slice(0,pipe):label;
+    var dur=null;
+    if(pipe>=0){var dv=parseFloat(label.slice(pipe+1));if(isFinite(dv))dur=dv}
+    var rec=readRecord(lsGet(k,null));
+    if(!rec.notes.length)return;
+    out.push({key:k,name:name||"Untitled video",dur:dur,lastEdited:rec.lastEdited,notes:rec.notes});
+  });
+  out.sort(function(a,b){return (b.lastEdited||0)-(a.lastEdited||0)||a.name.localeCompare(b.name)});
+  return out;
+}
+function renderSaved(){
+  var box=$("saved"),sets=savedSets();
+  box.innerHTML="";
+  if(!sets.length){box.classList.add("hidden");return}
+  box.classList.remove("hidden");
+  var h2=document.createElement("h2");h2.textContent="Saved notes";box.appendChild(h2);
+  var lead=document.createElement("div");lead.className="muted";lead.style.marginBottom="8px";
+  lead.textContent="Saved in this browser only. The video file itself has to be opened again.";
+  box.appendChild(lead);
+  sets.forEach(function(s){
+    var d=document.createElement("div");d.className="sv";
+    var nm=document.createElement("div");nm.className="nm";nm.textContent=s.name;
+    if(s.dur!=null){var sp=document.createElement("span");sp.className="muted";sp.textContent=" ("+f(s.dur)+")";nm.appendChild(sp)}
+    d.appendChild(nm);
+    var meta=document.createElement("div");meta.className="muted";
+    meta.textContent=s.notes.length+" "+(s.notes.length===1?"note":"notes")+" · "+fmtWhen(s.lastEdited);
+    d.appendChild(meta);
+    var hint=document.createElement("div");hint.className="muted";hint.textContent="Reopen this video to continue";d.appendChild(hint);
+    var row=document.createElement("div");row.className="row";
+    var view=document.createElement("button");
+    view.textContent=viewKey===s.key?"Hide notes":"View notes";
+    view.onclick=function(){viewKey=viewKey===s.key?null:s.key;renderSaved()};
+    var copy=document.createElement("button");copy.textContent="Copy notes";
+    copy.onclick=function(){
+      var text=notesTextFor(s.name,s.dur,s.notes);
+      copyText(text).then(function(){flash(copy,"Copied","Copy notes");setStatus("ok","Notes copied. Paste them to whoever you want.")},
+        function(){viewKey=s.key;renderSaved();setStatus("err","Could not copy automatically. Select the text below and copy it.",text)});
+    };
+    var del=document.createElement("button");del.className="g danger";del.textContent="Delete saved notes";
+    del.onclick=function(){
+      if(!confirm("Delete saved notes for "+s.name+"?"))return;
+      lsDel(s.key);
+      if(s.key===K){notes=[];editing=-1;editRef=null;highlightRef=null;draftPin=null;delete t.dataset.s;lastEdited=null;dirty=false;pinSig=""}
+      if(viewKey===s.key)viewKey=null;
+      draw();renderPins();info();renderSaved();
+    };
+    row.appendChild(view);row.appendChild(copy);row.appendChild(del);d.appendChild(row);
+    if(viewKey===s.key){var pre=document.createElement("pre");pre.textContent=notesTextFor(s.name,s.dur,s.notes);d.appendChild(pre)}
+    box.appendChild(d);
+  });
+  var right=$("right");
+  if(!FN)right.insertBefore(box,right.firstChild);
+  else right.appendChild(box);
+}
+
+/* == copy == */
+function lineFor(n){
+  var pin=pinPhrase(n).replace(/^ /,"");
+  var text=oneLine(n.txt);
+  return fc(n.s)+(pin?" "+pin:"")+(text?" "+text:"");
+}
+function notesTextFor(name,dur,arr){
+  var head=name||"Video";
+  if(typeof dur==="number"&&isFinite(dur)) head+=" ("+fc(dur)+")";
+  var ordered=arr.slice().sort(function(a,b){return a.s-b.s||String(a.txt).localeCompare(String(b.txt))});
+  return head+"\n"+ordered.map(lineFor).join("\n");
+}
+function notesText(){return notesTextFor(FN,isFinite(DUR)?DUR:null,notes)}
 function copyText(s){
   function fallback(){
     try{var ta=document.createElement("textarea");ta.value=s;ta.setAttribute("readonly","");ta.style.position="fixed";ta.style.top="-1000px";document.body.appendChild(ta);ta.select();var ok=document.execCommand("copy");document.body.removeChild(ta);return ok?Promise.resolve():Promise.reject(new Error("copy failed"))}catch(e){return Promise.reject(e)}
@@ -267,7 +590,7 @@ function copyText(s){
 $("cp").onclick=function(){
   if(!notes.length){setStatus("info","There are no notes to copy yet.");return}
   var s=notesText();
-  copyText(s).then(function(){flash($("cp"),"Copied","Copy all notes");setStatus("ok","Notes copied. Paste them into your chat.")},
+  copyText(s).then(function(){flash($("cp"),"Copied","Copy all notes");setStatus("ok","Notes copied. Paste them to whoever you want.")},
     function(){setStatus("err","Could not copy automatically. Select the text below and copy it.",s)});
 };
 function flash(b,txt,back){b.textContent=txt;setTimeout(function(){b.textContent=back},2000)}
@@ -278,84 +601,16 @@ function setStatus(kind,msg,manualText){
   if(manualText){var ta=document.createElement("textarea");ta.readOnly=true;ta.value=manualText;el.appendChild(ta);ta.focus();ta.select()}
 }
 
-/* == settings == */
-var SK=NS+":settings";
-function getS(){var d={url:"",key:"",mode:"bearer",hdr:"X-Sender-Key",q:"key"};try{var o=JSON.parse(lsGet(SK,"{}"));for(var k in o)if(o[k]!==undefined)d[k]=o[k]}catch(e){}return d}
-function fillS(){var s=getS();$("url").value=s.url;$("key").value=s.key;$("hdrName").value=s.hdr;$("qName").value=s.q;
-  var r=document.querySelector('input[name=mode][value="'+s.mode+'"]')||document.querySelector('input[name=mode][value=bearer]');r.checked=true;modeUI()}
-function readS(){var m=document.querySelector("input[name=mode]:checked");return{url:$("url").value.trim(),key:$("key").value,mode:m?m.value:"bearer",hdr:$("hdrName").value.trim()||"X-Sender-Key",q:$("qName").value.trim()||"key"}}
-function storeS(){lsSet(SK,JSON.stringify(readS()))}
-function modeUI(){var m=readS().mode;$("hdrName").disabled=m!=="header";$("qName").disabled=m!=="query"}
-Array.prototype.forEach.call(document.querySelectorAll("input[name=mode]"),function(r){r.onchange=function(){modeUI();storeS()}});
-["url","key","hdrName","qName"].forEach(function(id){$(id).addEventListener("change",storeS)});
-$("gear").onclick=function(){fillS();$("pingStatus").textContent="";$("dlg").showModal()};
-$("dlgClose").onclick=function(){storeS();$("dlg").close()};
-$("dlg").addEventListener("close",storeS);
-$("saveS").onclick=function(){storeS();$("pingStatus").textContent="Saved in this browser."};
-$("forget").onclick=function(){if(confirm("Remove the webhook URL and sender key from this browser?")){lsDel(SK);fillS();$("pingStatus").textContent="Removed."}};
-$("showKey").onclick=function(){var k=$("key");k.type=k.type==="password"?"text":"password";this.textContent=k.type==="password"?"Show":"Hide"};
-$("helpBtn").onclick=function(){var h=$("help");h.open=true;h.scrollIntoView({behavior:"smooth",block:"nearest"})};
-
-/* == send == */
-function payload(type){
-  return {type:type,app:"review-app",version:VERSION,
-    video:{name:FN||null,duration_s:DUR?+DUR.toFixed(2):null},
-    reviewer:rv.value.trim()||null,
-    sent_at:new Date().toISOString(),
-    notes:type==="test"?[]:notes.map(function(n){return{t_s:+n.s.toFixed(2),timecode:f(n.s),text:n.txt}})};
-}
-function post(type){
-  var s=getS();
-  if(!s.url)return Promise.reject({setup:true,msg:"Add your bot webhook URL in Settings first."});
-  var u;try{u=new URL(s.url)}catch(e){return Promise.reject({setup:true,msg:"The webhook URL does not look valid. It should start with https://"})}
-  var h={"Content-Type":"application/json"};
-  if(s.key){
-    if(s.mode==="header")h[s.hdr]=s.key;
-    else if(s.mode==="query")u.searchParams.set(s.q,s.key);
-    else h["Authorization"]="Bearer "+s.key;
-  }
-  return fetch(u.toString(),{method:"POST",mode:"cors",credentials:"omit",cache:"no-store",headers:h,body:JSON.stringify(payload(type))})
-    .then(function(r){return r.text().catch(function(){return ""}).then(function(body){return{ok:r.ok,status:r.status,body:body}})});
-}
-function describeHttp(r){var b=(r.body||"").trim().slice(0,200);return "HTTP "+r.status+(b?": "+b:"")}
-
-$("send").onclick=function(){
-  if(!FN){setStatus("err","Load a video and add some notes first.");return}
-  if(!notes.length){setStatus("info","There are no notes to send yet.");return}
-  var btn=$("send");btn.disabled=true;btn.textContent="Sending...";setStatus("info","Sending "+notes.length+" note"+(notes.length===1?"":"s")+" to your bot...");
-  var text=notesText();
-  post("review_notes").then(function(r){
-    if(r.ok)setStatus("ok","Sent "+notes.length+" note"+(notes.length===1?"":"s")+" to your bot ("+r.status+").");
-    else if(r.status===401||r.status===403)setStatus("err","Your bot refused the request ("+describeHttp(r)+"). Check the sender key and how it is sent in Settings.");
-    else setStatus("err","Your bot answered with an error ("+describeHttp(r)+"). The notes were not confirmed as received.");
-  },function(err){
-    if(err&&err.setup){setStatus("err",err.msg);fillS();$("dlg").showModal();return}
-    var isNet=err instanceof TypeError;
-    copyText(text).then(function(){
-      setStatus("err",(isNet?"The bot address blocked the browser request (network or CORS error), so the notes could not be sent from this page. ":"Sending failed. ")+"Your notes were copied to the clipboard instead. Paste them into a chat with your bot.");
-    },function(){
-      setStatus("err",(isNet?"The bot address blocked the browser request (network or CORS error), so the notes could not be sent from this page. ":"Sending failed. ")+"Copy the notes below and paste them into a chat with your bot.",text);
-    });
-  }).then(function(){btn.disabled=false;btn.textContent="Send to my bot"});
-};
-$("ping").onclick=function(){
-  storeS();var ps=$("pingStatus"),b=this;b.disabled=true;ps.textContent="Sending test ping...";
-  post("test").then(function(r){
-    ps.textContent=r.ok?"Test ping delivered ("+r.status+"). Check your bot.":"Your bot answered with an error ("+describeHttp(r)+")."+(r.status===401||r.status===403?" Check the sender key and how it is sent.":"");
-  },function(err){
-    ps.textContent=err&&err.setup?err.msg:(err instanceof TypeError?"The bot address blocked the browser request (network or CORS error). Check the URL. If it is right, the bot may not accept requests from web pages; use Copy all notes instead.":"Test ping failed: "+(err&&err.message||err));
-  }).then(function(){b.disabled=false});
-};
-
 /* == keyboard == */
 document.addEventListener("keydown",function(e){
   var a=document.activeElement,tag=a&&a.tagName;
-  if(tag==="TEXTAREA"||tag==="SELECT"||(tag==="INPUT"&&a.type!=="file"&&a.type!=="radio")||$("dlg").open)return;
+  if(tag==="TEXTAREA"||tag==="SELECT"||(tag==="INPUT"&&a.type!=="file"&&a.type!=="radio"))return;
   if(e.metaKey||e.ctrlKey||e.altKey)return;
   if(!v.src)return;
   var k=e.key;
   if(k===" "){e.preventDefault();v.paused?v.play():v.pause()}
   else if(k==="c"||k==="C"){e.preventDefault();v.pause();t.dataset.s=v.currentTime;t.focus();info()}
+  else if(k==="p"||k==="P"){e.preventDefault();setPinMode(!pinMode)}
   else if(k==="ArrowRight"){e.preventDefault();v.currentTime=Math.min(v.duration||1e9,v.currentTime+(e.shiftKey?5:1))}
   else if(k==="ArrowLeft"){e.preventDefault();v.currentTime=Math.max(0,v.currentTime-(e.shiftKey?5:1))}
   else if(k==="."){v.pause();v.currentTime+=1/24}
@@ -364,7 +619,8 @@ document.addEventListener("keydown",function(e){
 /* keep space from activating a focused button instead of play or pause */
 document.addEventListener("keyup",function(e){if(e.key===" "&&document.activeElement&&document.activeElement.tagName==="BUTTON"&&v.src)e.preventDefault()});
 
-draw();info();
+document.documentElement.setAttribute("data-version", VERSION);
+setPinMode(false);draw();renderSaved();
 })();
 </script>
 </body>

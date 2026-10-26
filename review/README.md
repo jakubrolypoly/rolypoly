@@ -1,50 +1,47 @@
 # Review
 
-A small web page for reviewing a video and leaving timestamped notes. It runs entirely in your browser.
+A small web page for reviewing a video and leaving timestamped notes. It runs entirely in your browser. Version 1.1.0.
+
+Open the page, pick a video, write notes, then copy them and paste them to whoever needs them. Nothing is uploaded.
 
 ## What it does
 
-* Pick a video from your own computer, or drag it onto the page. The file is never uploaded.
+* Pick a video from your own computer, or drag it onto the page. The file stays on your computer.
 * Add notes at the current time. Click a timestamp to jump back to it. Edit or delete any note.
-* Notes are saved in this browser, separately for each video (by file name and length).
-* Copy all notes as plain text to paste into a chat.
-* Send the notes straight to your Grok Bot through a webhook.
+* Drop a pin on the frame for a note. Pins are numbered circles on the picture. The number matches that note's place in the list, starting at 1. A note can also be saved with no pin.
+* Notes are saved in this browser, separately for each video (by file name and length). A pin is saved with its note. Older notes that have no pin still load.
+* After a refresh, the video file has to be opened again. If any notes are saved, a Saved notes panel lists each video, how many notes it has, and when they were last edited. Reopen the same file to continue. You can view or copy those notes before the video is open.
+* Copy all notes as plain text. The first line is the video name and duration. Each note is one line after that.
 
 ## Keyboard
 
 * Space: play or pause
 * C: write a note at the current time (Ctrl or Cmd + Enter saves it)
+* P: turn pin mode on or off. Then click or tap the picture to drop a pin. The note box is focused so you can type. Drag a pin to move it. Use Remove pin on the note, or the small x on the circle, to drop the pin and keep the note.
 * Left and Right arrows: back or forward 1 second (hold Shift for 5 seconds)
 * Comma and period: back or forward one frame
 
-## How to connect your Grok Bot
+Pins show only while the playhead is within about 1 second of that note, including when playback is paused on the note. Click a note in the list to jump to it and highlight its pin.
 
-1. Ask your Grok Bot to create a routine with a webhook trigger that treats incoming payloads as review notes.
-2. Copy the webhook URL and the sender key from the routine panel.
-3. Open Settings on the page (the gear) and paste them in.
-4. Press Send test ping.
+Pin positions are fractions of the real picture, from 0 to 1, so a tall video in a wide frame still lines up. The black bars around the picture are not part of the pin area.
 
-The URL and key are stored only in your browser's local storage. They are not part of the site.
+## Saved on this device
 
-## What gets sent
+Notes stay in this browser until you remove them. Refreshing the page does not delete them. The video file is not stored, so you pick it again. The same file name and length bring the notes and pins back.
 
-A POST with `Content-Type: application/json`:
+Each saved set keeps a last edited time. Clear all asks before it removes the notes for the open video. Delete saved notes, on each row of the Saved notes panel, asks before it removes that video's notes.
 
-```json
-{
-  "type": "review_notes",
-  "app": "review-app",
-  "version": "1.0.0",
-  "video": { "name": "clip.mp4", "duration_s": 12.5 },
-  "reviewer": "Sam",
-  "sent_at": "2026-10-26T11:40:00.000Z",
-  "notes": [ { "t_s": 3.2, "timecode": "0:03.2", "text": "Logo flickers" } ]
-}
+## What copy produces
+
+Copy all notes puts plain text on the clipboard:
+
+```
+clip.mp4 (00:00:12.5)
+00:00:03.2 [pin x=41% y=29%] Logo flickers
+00:01:23.4 Second note
 ```
 
-A test ping uses `"type": "test"` and an empty notes list. By default the key goes in an `Authorization: Bearer` header. Settings also let you use a custom header or a query parameter.
-
-If the bot address does not accept requests from web pages (a CORS or network error), the page copies the notes to your clipboard so you can paste them instead.
+The pin text is included only when that note has a pin. `x` and `y` are percentages of the picture. Times use hours, minutes, seconds, and tenths.
 
 ## Hosting
 
