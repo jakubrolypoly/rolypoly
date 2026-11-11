@@ -6,7 +6,7 @@
 <meta name="color-scheme" content="dark">
 <title>Review</title>
 <link rel="icon" href="data:,">
-<meta name="description" content="Watch a video from your own computer, add timestamped notes, and copy them.">
+<meta name="description" content="Watch a video from your computer or a shared link, add timestamped notes, and copy them.">
 <style>
 :root{
   --bg:#101114;
@@ -295,7 +295,7 @@ button.icon.danger:hover{background:#4a2327;color:#ffd0d3}
 <script>
 (function(){
 "use strict";
-var VERSION="1.1.0";
+var VERSION="1.2.0";
 var NS="review_app_v1";
 var $=function(id){return document.getElementById(id)};
 var v=$("v"),t=$("t"),stage=$("stage");
@@ -303,6 +303,7 @@ var FN="",DUR=0,K="",notes=[];
 var editing=-1,editRef=null,highlightRef=null;
 var pinMode=false,draftPin=null,lastEdited=null,dirty=false,viewKey=null;
 var pinSig="*",drag=null,lastPlace=0,blockPlace=0;
+var linkKey="",linkKind="",givenTitle="",ticket=0;
 var PIN_SVG='<svg class="pinmark" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M8 1.4a3.2 3.2 0 0 0-3.2 3.2C4.8 7.4 8 13.2 8 13.2s3.2-5.8 3.2-8.6A3.2 3.2 0 0 0 8 1.4zm0 4.4a1.2 1.2 0 1 1 0-2.4 1.2 1.2 0 0 1 0 2.4z"/></svg>';
 var EDIT_SVG='<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M11.8 1.7a1.5 1.5 0 0 1 2.1 2.1l-.7.7-2.1-2.1.7-.7zM10.4 3.1 2.6 10.9 2 14l3.1-.6 7.8-7.8-2.5-2.5z"/></svg>';
 var DEL_SVG='<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M6.1 1.8h3.8l.5 1.3H13v1.4H3V3.1h2.6l.5-1.3zM4.2 5.6h7.6l-.6 8c0 .4-.3.7-.7.7H5.5c-.4 0-.7-.3-.7-.7l-.6-8z"/></svg>';
@@ -335,42 +336,219 @@ function noteNear(n){
   return !!(n&&FN&&isFinite(v.currentTime)&&Math.abs(v.currentTime-n.s)<=1);
 }
 
+/* Open from a link: ?v=<Drive file id | Drive share URL | direct video URL>&title=<optional name>
+   A Drive share URL looks like https://drive.google.com/file/d/<id>/view
+   Drive files stream from https://drive.usercontent.google.com/download?id=<id>&export=download
+   Example: ?v=https://drive.google.com/file/d/FILE_ID/view&title=Rough%20cut */
+function driveStream(id){return "https://drive.usercontent.google.com/download?id="+encodeURIComponent(id)+"&export=download"}
+function driveIdFrom(text){
+  var s=String(text||"").trim();
+  if(!s)return "";
+  if(/^(?:drive|docs)\.google\.com\//i.test(s)||/^drive\.usercontent\.google\.com\//i.test(s))s="https://"+s;
+  var file=s.match(/\/file\/d\/([a-zA-Z0-9_-]+)/i);
+  if(file&&/google\.com/i.test(s))return file[1];
+  if(/drive\.google\.com|drive\.usercontent\.google\.com|docs\.google\.com/i.test(s)){
+    var q=s.match(/[?&]id=([a-zA-Z0-9_-]+)/i);
+    if(q)return q[1];
+  }
+  return "";
+}
+function directUrl(text){
+  try{
+    var u=new URL(text);
+    if(u.protocol!=="http:"&&u.protocol!=="https:")return "";
+    u.hash="";
+    return u.href;
+  }catch(e){return ""}
+}
+function urlName(href){
+  try{
+    var u=new URL(href);
+    var parts=u.pathname.split("/").filter(Boolean);
+    var last=parts.length?decodeURIComponent(parts[parts.length-1]):"";
+    if(last)return last;
+    return u.hostname||"Video";
+  }catch(e){return "Video"}
+}
+function linkLabel(storageId,title){
+  if(title)return title;
+  if(storageId.indexOf("drive:")===0){
+    var id=storageId.slice(6);
+    return id?("Drive "+id):"Drive video";
+  }
+  if(storageId.indexOf("url:")===0)return urlName(storageId.slice(4));
+  return storageId||"Video";
+}
+function resolveVideo(raw,title){
+  var text=String(raw||"").trim();
+  title=title?String(title).trim():"";
+  if(!text)return null;
+  var id=driveIdFrom(text);
+  if(!id&&/^[a-zA-Z0-9_-]{25,128}$/.test(text))id=text;
+  if(id)return {kind:"drive",key:"drive:"+id,src:driveStream(id),title:title,fallback:"Drive "+id};
+  if(/google\.com/i.test(text)&&/drive\.google|docs\.google|usercontent\.google/i.test(text))return null;
+  var href=directUrl(text);
+  if(!href)return null;
+  return {kind:"url",key:"url:"+href,src:href,title:title,fallback:urlName(href)};
+}
+function cutVideo(){
+  ticket++;
+  if(v.dataset.u){URL.revokeObjectURL(v.dataset.u);delete v.dataset.u}
+}
+function blankSession(){
+  DUR=0;K="";notes=[];editing=-1;editRef=null;highlightRef=null;draftPin=null;lastEdited=null;dirty=false;
+  delete t.dataset.s;
+  clearStatus();
+}
+function clearVideoQuery(){
+  try{
+    var u=new URL(location.href);
+    if(!u.searchParams.has("v")&&!u.searchParams.has("title"))return;
+    u.searchParams.delete("v");
+    u.searchParams.delete("title");
+    history.replaceState(null,"",u.pathname+(u.search||"")+(u.hash||""));
+  }catch(e){}
+}
+function bindVideo(src){
+  var my=++ticket;
+  var expected=src;
+  function detach(){
+    v.removeEventListener("loadedmetadata",ok);
+    v.removeEventListener("error",bad);
+  }
+  /* Ignore a stale error from clearing the previous source. An empty or replaced
+     src does not belong to this load; keep listening until this one settles. */
+  function currentSrc(){return v.currentSrc||v.src||""}
+  function sameSrc(a,b){
+    if(!a||!b)return false;
+    if(a===b)return true;
+    try{return new URL(a,location.href).href===new URL(b,location.href).href}catch(err){return false}
+  }
+  function mine(){
+    if(my!==ticket)return false;
+    var now=currentSrc();
+    if(!now)return true;
+    return sameSrc(now,expected);
+  }
+  function ok(){
+    if(!mine()){if(my!==ticket)detach();return}
+    detach();
+    onVideoReady();
+  }
+  function bad(){
+    if(!mine()){if(my!==ticket)detach();return}
+    var code=v.error&&v.error.code;
+    if(code===1)return;
+    detach();
+    if(!linkKey)return;
+    onVideoFail();
+  }
+  v.addEventListener("loadedmetadata",ok);
+  v.addEventListener("error",bad);
+  v.src=src;
+}
+function onVideoReady(){
+  DUR=isFinite(v.duration)?v.duration:0;
+  if(linkKey){
+    if(!K)K=NS+":link:"+linkKey;
+    if(notes.length)syncLinkMeta();
+  }else{
+    K=NS+":notes:"+FN+"|"+DUR.toFixed(2);
+    var rec=readRecord(lsGet(K,null));
+    notes=rec.notes;lastEdited=rec.lastEdited;
+    if(!notes.length){
+      var old=readRecord(lsGet("smooche_review_v1:"+FN,null));
+      if(old.notes.length){notes=old.notes;lastEdited=null;dirty=true;writeStore()}
+    }
+  }
+  $("fn").textContent=FN+" · "+fc(DUR);
+  document.title="Review: "+FN;
+  pinSig="*";draw();info();renderSaved();
+}
+function syncLinkMeta(){
+  if(!K||!notes.length)return;
+  var rec=readRecord(lsGet(K,null));
+  var durNow=+DUR.toFixed(2);
+  var sameDur=typeof rec.dur==="number"&&rec.dur===durNow;
+  if(rec.title===FN&&sameDur)return;
+  writeStore();
+}
+function onVideoFail(){
+  var kind=linkKind;
+  ticket++;
+  setPinMode(false);
+  linkKey="";linkKind="";givenTitle="";
+  FN="";DUR=0;K="";notes=[];editing=-1;editRef=null;highlightRef=null;draftPin=null;lastEdited=null;dirty=false;
+  delete t.dataset.s;
+  stage.classList.remove("has");
+  try{v.removeAttribute("src");v.load()}catch(e){}
+  v.controls=true;
+  $("fn").textContent="No video open";
+  document.title="Review";
+  pinSig="*";draw();info();renderSaved();
+  if(kind==="drive")setStatus("err","This video could not be opened. The file may not be shared as \"Anyone with the link\", or it may not be a video this browser can play.");
+  else setStatus("err","This video could not be opened. Check that the link points directly at a video file.");
+}
+function presentVideo(label){
+  stage.classList.add("has");
+  $("fn").textContent=label;
+  document.title="Review: "+FN;
+  pinSig="*";
+}
 function load(file){
   if(!file)return;
   if(file.type&&!/^video\//.test(file.type)&&!/\.(mp4|m4v|mov|webm|mkv|ogv|avi)$/i.test(file.name)){setStatus("err","That file does not look like a video.");return}
-  if(v.dataset.u)URL.revokeObjectURL(v.dataset.u);
+  clearVideoQuery();
+  cutVideo();
+  linkKey="";linkKind="";givenTitle="";
+  blankSession();
   var u=URL.createObjectURL(file);v.dataset.u=u;
-  FN=file.name;DUR=0;K="";notes=[];editing=-1;editRef=null;highlightRef=null;draftPin=null;lastEdited=null;dirty=false;
-  delete t.dataset.s;
-  v.src=u;stage.classList.add("has");
+  FN=file.name;
+  presentVideo(FN);
+  draw();renderSaved();
+  bindVideo(u);
   setPinMode(false);
-  $("fn").textContent=FN;document.title="Review: "+FN;
-  clearStatus();
-  pinSig="*";draw();renderSaved();
 }
-v.addEventListener("loadedmetadata",function(){
-  DUR=isFinite(v.duration)?v.duration:0;
-  K=NS+":notes:"+FN+"|"+DUR.toFixed(2);
+function loadRemote(spec){
+  cutVideo();
+  linkKey=spec.key;linkKind=spec.kind;givenTitle=spec.title||"";
+  blankSession();
+  FN=givenTitle||spec.fallback;
+  K=NS+":link:"+linkKey;
   var rec=readRecord(lsGet(K,null));
   notes=rec.notes;lastEdited=rec.lastEdited;
-  if(!notes.length){
-    var old=readRecord(lsGet("smooche_review_v1:"+FN,null));
-    if(old.notes.length){notes=old.notes;lastEdited=null;dirty=true;writeStore()}
-  }
-  $("fn").textContent=FN+" · "+fc(DUR);
-  pinSig="*";draw();info();renderSaved();
-});
+  if(!givenTitle&&rec.title)FN=rec.title;
+  presentVideo("Loading "+FN+"...");
+  draw();renderSaved();
+  bindVideo(spec.src);
+  setPinMode(false);
+}
+function openFromQuery(){
+  var params;
+  try{params=new URLSearchParams(location.search)}catch(e){return}
+  var raw=params.get("v");
+  if(raw==null||!String(raw).trim())return;
+  var title=params.get("title");
+  title=title==null?"":String(title).trim();
+  var spec=resolveVideo(String(raw).trim(),title);
+  if(!spec){setStatus("err","That link does not look like a video. Use a Google Drive file id, a Drive share link, or a direct video URL.");return}
+  loadRemote(spec);
+}
 function cleanNote(n){
   if(!n||typeof n.s!=="number"||typeof n.txt!=="string"||!isFinite(n.s))return null;
   var o={s:n.s,txt:n.txt};var p=normPin(n.pin);if(p)o.pin=p;return o;
 }
 function readRecord(x){
-  var empty={notes:[],lastEdited:null};
+  var empty={notes:[],lastEdited:null,title:null,dur:null};
   if(x==null||x==="")return empty;
   try{
     var o=JSON.parse(x);
-    if(Array.isArray(o))return {notes:o.map(cleanNote).filter(Boolean),lastEdited:null};
-    if(o&&Array.isArray(o.notes))return {notes:o.notes.map(cleanNote).filter(Boolean),lastEdited:(typeof o.lastEdited==="number"&&isFinite(o.lastEdited))?o.lastEdited:null};
+    if(Array.isArray(o))return {notes:o.map(cleanNote).filter(Boolean),lastEdited:null,title:null,dur:null};
+    if(o&&Array.isArray(o.notes)){
+      var title=(typeof o.title==="string"&&o.title.trim())?o.title.trim():null;
+      var dur=(typeof o.dur==="number"&&isFinite(o.dur))?o.dur:null;
+      return {notes:o.notes.map(cleanNote).filter(Boolean),lastEdited:(typeof o.lastEdited==="number"&&isFinite(o.lastEdited))?o.lastEdited:null,title:title,dur:dur};
+    }
   }catch(e){}
   return empty;
 }
@@ -423,6 +601,10 @@ function writeStore(){
   if(dirty){lastEdited=Date.now();dirty=false}
   var rec={notes:notes};
   if(typeof lastEdited==="number")rec.lastEdited=lastEdited;
+  if(linkKey){
+    if(FN)rec.title=FN;
+    if(isFinite(DUR)&&DUR>0)rec.dur=+DUR.toFixed(2);
+  }
   lsSet(K,JSON.stringify(rec));
 }
 function saveNotes(){dirty=true;writeStore();pinSig="*";draw();renderPins();renderSaved()}
@@ -713,7 +895,16 @@ function savedSets(){
   var out=[],keys=[];
   try{for(var i=0;i<localStorage.length;i++)keys.push(localStorage.key(i))}catch(e){return out}
   keys.forEach(function(k){
-    if(!k||k.indexOf(NS+":notes:")!==0)return;
+    if(!k)return;
+    if(k.indexOf(NS+":link:")===0){
+      var recL=readRecord(lsGet(k,null));
+      if(!recL.notes.length)return;
+      var storageId=k.slice((NS+":link:").length);
+      var linkDur=(typeof recL.dur==="number"&&isFinite(recL.dur))?recL.dur:null;
+      out.push({key:k,name:linkLabel(storageId,recL.title)||"Untitled video",dur:linkDur,lastEdited:recL.lastEdited,notes:recL.notes});
+      return;
+    }
+    if(k.indexOf(NS+":notes:")!==0)return;
     var label=k.slice((NS+":notes:").length);
     var pipe=label.lastIndexOf("|");
     var name=pipe>=0?label.slice(0,pipe):label;
@@ -751,7 +942,7 @@ function renderSaved(){
     var meta=document.createElement("div");meta.className="muted";
     meta.textContent=s.notes.length+" "+(s.notes.length===1?"note":"notes")+" · "+fmtWhen(s.lastEdited);
     d.appendChild(meta);
-    var hint=document.createElement("div");hint.className="muted";hint.textContent="Reopen this video to continue";d.appendChild(hint);
+    var hint=document.createElement("div");hint.className="muted";hint.textContent=s.key.indexOf(NS+":link:")===0?"Open the same link to continue":"Reopen this video to continue";d.appendChild(hint);
     var row=document.createElement("div");row.className="row";
     var view=document.createElement("button");view.type="button";view.className="s";
     view.textContent=viewKey===s.key?"Hide notes":"View notes";
@@ -843,6 +1034,7 @@ document.addEventListener("keyup",function(e){if(e.key===" "&&document.activeEle
 
 document.documentElement.setAttribute("data-version",VERSION);
 setPinMode(false);draw();renderSaved();
+openFromQuery();
 })();
 </script>
 </body>

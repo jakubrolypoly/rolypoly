@@ -1,6 +1,6 @@
 # Review
 
-A small web page for reviewing a video and leaving timestamped notes. It runs entirely in your browser. Version 1.1.0.
+A small web page for reviewing a video and leaving timestamped notes. It runs entirely in your browser. Version 1.2.0.
 
 Open the page, pick a video, write notes, then copy them and paste them to whoever needs them. Nothing is uploaded.
 
@@ -9,9 +9,27 @@ Open the page, pick a video, write notes, then copy them and paste them to whoev
 * Pick a video from your own computer, or drag it onto the page. The file stays on your computer. The player sits on the left, with the note box under it, and the notes list on the right. On a narrow screen the notes list stacks under the player.
 * Add notes at the current time. Click a timestamp to jump back to it. Edit or delete any note.
 * Drop a pin on the frame for a note. Pins are numbered circles on the picture. The number matches that note's place in the list, starting at 1. A note can also be saved with no pin.
-* Notes are saved in this browser, separately for each video (by file name and length). A pin is saved with its note. Older notes that have no pin still load.
-* After a refresh, the video file has to be opened again. If any notes are saved, a Saved notes panel lists each video, how many notes it has, and when they were last edited. Reopen the same file to continue. You can view or copy those notes before the video is open.
-* Copy all notes as plain text. The first line is the video name and duration. Each note is one line after that.
+* Notes are saved in this browser, separately for each video. A file from this computer is remembered by its name and length. A video opened from a link is remembered by its Drive file id or URL, so the same link brings the notes back. A pin is saved with its note. Older notes that have no pin still load.
+* After a refresh, a video from this computer has to be opened again. A video opened from a link loads again from that link. If any notes are saved, a Saved notes panel lists each video, how many notes it has, and when they were last edited. Reopen the same file, or the same link, to continue. You can view or copy those notes before the video is open.
+* Copy all notes as plain text. The first line is the video name and duration. When a link includes a title, that title is the name. Each note is one line after that.
+
+## Open a video from a link
+
+Add a `v` query parameter. Optionally add `title` for the name shown on the page, in copied notes, and in the saved-notes list.
+
+`v` can be any one of these:
+
+* a Google Drive file id
+* a Drive share link, such as `https://drive.google.com/file/d/<id>/view`
+* a direct video URL (`http` or `https`)
+
+A Drive file has to be shared as "Anyone with the link". The page plays it from `https://drive.usercontent.google.com/download?id=<id>&export=download`. If the file is not shared that way, the page says it could not open the video.
+
+```
+https://jakubrolypoly.github.io/rolypoly/review/?v=1aBcDeFgHiJkLmNoPqRsTuVwXyZ012345
+https://jakubrolypoly.github.io/rolypoly/review/?v=https://drive.google.com/file/d/1aBcDeFgHiJkLmNoPqRsTuVwXyZ012345/view&title=Rough%20cut
+https://jakubrolypoly.github.io/rolypoly/review/?v=https://example.com/cut.mp4&title=Client%20cut
+```
 
 ## Keyboard
 
@@ -28,7 +46,7 @@ Pin positions are fractions of the real picture, from 0 to 1, so a tall video in
 
 ## Saved on this device
 
-Notes stay in this browser until you remove them. Refreshing the page does not delete them. The video file is not stored, so you pick it again. The same file name and length bring the notes and pins back.
+Notes stay in this browser until you remove them. Refreshing the page does not delete them. A video file from this computer is not stored, so you pick it again. The same file name and length bring those notes and pins back. The same Drive file id or direct URL brings a linked video's notes and pins back, including its title.
 
 Each saved set keeps a last edited time. Clear all asks before it removes the notes for the open video. Delete saved notes, on each row of the Saved notes panel, asks before it removes that video's notes.
 
